@@ -79,3 +79,4 @@ output.docx
 
 # Local docker-compose overrides
 docker-compose.override.yml
+artifacts/*

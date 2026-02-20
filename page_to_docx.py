@@ -17,7 +17,7 @@ Features
 - Ordered and unordered lists (including nested lists)
 - Tables (with header-row bolding and colspan support)
 - Images (remote URLs + data URIs + SVG via cairosvg)
-- YouTube / video iframes → embedded thumbnail image + caption link
+- YouTube / video iframes -> embedded thumbnail image + caption link
 - Mermaid diagrams rendered to PNG via mmdc CLI
 
 Dependencies:
@@ -102,15 +102,12 @@ def _extract_youtube_id(url: str) -> str | None:
     """Extract YouTube video ID from various URL formats."""
     if not url:
         return None
-    # youtu.be/ID
     m = re.search(r"youtu\.be/([A-Za-z0-9_-]{11})", url)
     if m:
         return m.group(1)
-    # youtube.com/watch?v=ID  or  /embed/ID  or  /v/ID
     m = re.search(r"youtube\.com/(?:watch\?v=|embed/|v/)([A-Za-z0-9_-]{11})", url)
     if m:
         return m.group(1)
-    # youtube-nocookie.com/embed/ID
     m = re.search(r"youtube-nocookie\.com/embed/([A-Za-z0-9_-]{11})", url)
     if m:
         return m.group(1)
@@ -221,6 +218,34 @@ def _extract_mermaid_code(node: Tag) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Shading helpers — grey background for code/pre blocks
+# ---------------------------------------------------------------------------
+
+# Light grey background applied to <pre> paragraphs and inline <code> runs
+_CODE_BG_COLOR = "E8E8E8"
+
+
+def _set_paragraph_shading(para, fill_hex: str):
+    """Apply a solid background fill to an entire paragraph."""
+    pPr = para._p.get_or_add_pPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill_hex)
+    pPr.append(shd)
+
+
+def _set_run_shading(run, fill_hex: str):
+    """Apply a solid character-level background fill to a run."""
+    rPr = run._r.get_or_add_rPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill_hex)
+    rPr.append(shd)
+
+
+# ---------------------------------------------------------------------------
 # CSS inline style parsing
 # ---------------------------------------------------------------------------
 
@@ -260,7 +285,7 @@ def _parse_css_pt(value: str) -> Pt | None:
         return Pt(num)
     if unit in ("em", "rem"):
         return Pt(num * 12)
-    return Pt(num * 0.75)  # px → pt at 96dpi
+    return Pt(num * 0.75)  # px -> pt at 96dpi
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +370,7 @@ class _RunFmt:
             if face:
                 f.font_name = face.split(",")[0].strip()
             size_attr = node.get("size", "")
-            # HTML font size 1–7 mapped to pt
+            # HTML font size 1-7 mapped to pt
             if size_attr.isdigit():
                 sizes = {1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36}
                 f.font_size = Pt(sizes.get(int(size_attr), 12))
@@ -409,7 +434,7 @@ class _RunFmt:
                     self.subscript = True
                     self.superscript = None
 
-    def apply_to_run(self, run):
+    def apply_to_run(self, run, apply_code_bg: bool = True):
         if self.bold is not None:
             run.bold = self.bold
         if self.italic is not None:
@@ -428,6 +453,9 @@ class _RunFmt:
             run.font.name = self.font_name
         if self.font_size:
             run.font.size = self.font_size
+        # Apply grey background shading for inline code/kbd/tt/samp/var runs
+        if apply_code_bg and self.is_code:
+            _set_run_shading(run, _CODE_BG_COLOR)
 
 
 # ---------------------------------------------------------------------------
@@ -517,7 +545,7 @@ _SKIP_TAGS = {
 
 
 # ---------------------------------------------------------------------------
-# HTML → python-docx renderer
+# HTML -> python-docx renderer
 # ---------------------------------------------------------------------------
 
 class HtmlToDocx:
@@ -556,12 +584,12 @@ class HtmlToDocx:
         if tag in _SKIP_TAGS:
             return
 
-        # ── iframe: video embeds ──────────────────────────────────────
+        # -- iframe: video embeds --
         if tag == "iframe":
             self._handle_iframe(node)
             return
 
-        # ── SVG: skip (no useful text content) ───────────────────────
+        # -- SVG: skip (no useful text content) --
         if tag == "svg":
             return
 
@@ -600,12 +628,13 @@ class HtmlToDocx:
             self._close_para()
             return
 
-        # Preformatted text (non-mermaid)
+        # Preformatted text (non-mermaid) -- grey background applied per paragraph line
         if tag == "pre":
             self._close_para()
             text = node.get_text()
             for line in text.splitlines():
                 para = self.doc.add_paragraph()
+                _set_paragraph_shading(para, _CODE_BG_COLOR)
                 run = para.add_run(line)
                 run.font.name = "Courier New"
                 run.font.size = Pt(9)
@@ -654,7 +683,7 @@ class HtmlToDocx:
             self._close_para()
             return
 
-        # Inline tags at block level → open a para and go inline
+        # Inline tags at block level -> open a para and go inline
         if tag in _INLINE_TAGS:
             self._open_para()
             self._walk_inline(node, _RunFmt())
@@ -763,32 +792,31 @@ class HtmlToDocx:
 
         self._close_para()
 
-        # ── YouTube ──────────────────────────────────────────────────
+        # -- YouTube --
         yt_id = _extract_youtube_id(src)
         if yt_id:
             watch_url = f"https://www.youtube.com/watch?v={yt_id}"
-            print(f"  [iframe] YouTube video {yt_id} – fetching thumbnail…")
+            print(f"  [iframe] YouTube video {yt_id} -- fetching thumbnail...")
             thumb_bytes = _youtube_thumbnail_bytes(yt_id)
             if thumb_bytes:
-                self._embed_video_thumbnail(thumb_bytes, watch_url, label="▶ Watch on YouTube")
+                self._embed_video_thumbnail(thumb_bytes, watch_url, label="Play Watch on YouTube")
             else:
-                # Fallback: plain link
                 para = self.doc.add_paragraph()
                 fmt = _RunFmt()
                 fmt.is_link = True
                 fmt.link_url = watch_url
                 fmt.color = RGBColor(0x1F, 0x69, 0xC0)
                 fmt.underline = True
-                _add_hyperlink(para, watch_url, f"▶ YouTube video: {yt_id}", fmt)
+                _add_hyperlink(para, watch_url, f"Play YouTube video: {yt_id}", fmt)
             return
 
-        # ── Vimeo ────────────────────────────────────────────────────
+        # -- Vimeo --
         vm_id = _extract_vimeo_id(src)
         if vm_id:
             watch_url = f"https://vimeo.com/{vm_id}"
-            print(f"  [iframe] Vimeo video {vm_id} – fetching thumbnail…")
+            print(f"  [iframe] Vimeo video {vm_id} -- fetching thumbnail...")
             thumb_bytes, title = _vimeo_thumbnail_bytes(vm_id)
-            label = f"▶ Watch on Vimeo" + (f": {title}" if title else "")
+            label = "Play Watch on Vimeo" + (f": {title}" if title else "")
             if thumb_bytes:
                 self._embed_video_thumbnail(thumb_bytes, watch_url, label=label)
             else:
@@ -801,10 +829,9 @@ class HtmlToDocx:
                 _add_hyperlink(para, watch_url, label, fmt)
             return
 
-        # ── Generic iframe: emit as a note ───────────────────────────
+        # -- Generic iframe: emit as a note --
         title = node.get("title", "") or node.get("aria-label", "")
         label = f"[Embedded content: {title or src}]"
-        # Attempt to make the src a clickable link if it looks like a URL
         if src.startswith("http"):
             para = self.doc.add_paragraph()
             fmt = _RunFmt()
@@ -851,11 +878,12 @@ class HtmlToDocx:
 
     def _handle_mermaid(self, node: Tag):
         code = _extract_mermaid_code(node)
-        print(f"  [mermaid] Rendering diagram ({len(code)} chars)…")
+        print(f"  [mermaid] Rendering diagram ({len(code)} chars)...")
         png = render_mermaid_to_png(code)
         if not png:
             print("  [mermaid] Falling back to code block.")
             para = self.doc.add_paragraph()
+            _set_paragraph_shading(para, _CODE_BG_COLOR)
             run = para.add_run(code.strip())
             run.font.name = "Courier New"
             run.font.size = Pt(8)
@@ -868,7 +896,7 @@ class HtmlToDocx:
             para = self.doc.add_paragraph()
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             para.add_run().add_picture(BytesIO(png), width=Inches(w_in))
-            print(f"  [mermaid] Embedded {pil.size[0]}×{pil.size[1]}px → {w_in:.1f}in.")
+            print(f"  [mermaid] Embedded {pil.size[0]}x{pil.size[1]}px -> {w_in:.1f}in.")
         except Exception as e:
             print(f"  [mermaid] Could not embed PNG: {e}")
 
@@ -1049,7 +1077,7 @@ class WebPageToDocx:
             run.font.size = Pt(8)
             run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
 
-            # Strip non-content tags — iframes and mermaid containers are preserved
+            # Strip non-content tags -- iframes and mermaid containers are preserved
             for tag in soup(["script", "style", "noscript", "nav",
                               "footer", "svg"]):
                 tag.decompose()
@@ -1091,11 +1119,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if not _MMDC_PATH:
-        print("Warning: mmdc not found – Mermaid diagrams will be plain text.\n"
+        print("Warning: mmdc not found -- Mermaid diagrams will be plain text.\n"
               "Install with: npm install -g @mermaid-js/mermaid-cli")
 
-    input_file  = sys.argv[1] if len(sys.argv) > 1 else "pages.txt"
-    output_file = sys.argv[2] if len(sys.argv) > 2 else "output.docx"
+    input_file  = sys.argv[1] if len(sys.argv) > 1 else "artifacts/pages.txt"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "artifacts/output.docx"
 
     converter = WebPageToDocx(input_file=input_file, output_file=output_file)
     converter.read_urls()
