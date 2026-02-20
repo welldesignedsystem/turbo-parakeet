@@ -1,0 +1,81 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.py[cod]
+*.pyo
+*.pyd
+
+# Build / packaging
+build/
+dist/
+wheels/
+*.egg-info
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pipenv / poetry
+Pipfile.lock
+poetry.lock
+
+# pyproject / cache
+.mypy_cache/
+.pytest_cache/
+.tox/
+.coverage
+coverage.xml
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment files
+.env
+.env.*
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite3
+*.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+*.bak
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Generated documents
+output.docx
+
+# Lock files and OS-specific
+*.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local docker-compose overrides
+docker-compose.override.yml

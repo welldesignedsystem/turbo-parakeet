@@ -1,0 +1,14 @@
+[project]
+name = "turbo-parakeet"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "bs4>=0.0.2",
+    "pdfkit>=1.0.0",
+    "pillow>=12.1.1",
+    "python-docx>=1.2.0",
+    "requests>=2.32.5",
+]
